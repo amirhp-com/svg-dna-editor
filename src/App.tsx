@@ -8,30 +8,43 @@ const DEFAULT_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 10
   <path d="M 30 50 L 45 65 L 70 35" stroke="#2ea043" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round" />
 </svg>`;
 
-const optimizeSvg = (svgString: string) => {
+const optimizeSvg = (svgString: string, stripAttrs: boolean = true) => {
   try {
     const parser = new DOMParser();
-    const doc = parser.parseFromString(svgString, 'image/svg+xml');
+    // Use text/html for more lenient parsing of snippets
+    const doc = parser.parseFromString(svgString, 'text/html');
     const svg = doc.querySelector('svg');
     if (!svg) return svgString;
+
+    // Force standard attributes
+    svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    svg.setAttribute('version', '1.1');
+
+    // Check for xlink usage
+    if (svgString.includes('xlink:href') || svgString.includes('xlink:')) {
+      svg.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+    }
 
     // Security: remove scripts and event handlers
     const scripts = svg.querySelectorAll('script');
     scripts.forEach(s => s.remove());
 
-    const allElements = svg.querySelectorAll('*');
-    allElements.forEach(el => {
+    const elementsToProcess = [svg, ...Array.from(svg.querySelectorAll('*'))];
+    elementsToProcess.forEach(el => {
+      // Create a list of attributes to remove to avoid iteration issues
+      const attrsToRemove: string[] = [];
       Array.from(el.attributes).forEach(attr => {
+        // Remove event handlers
         if (attr.name.startsWith('on')) {
-          el.removeAttribute(attr.name);
+          attrsToRemove.push(attr.name);
+        }
+        // Remove class and id if requested
+        if (stripAttrs && (attr.name === 'class' || attr.name === 'id')) {
+          attrsToRemove.push(attr.name);
         }
       });
+      attrsToRemove.forEach(attrName => el.removeAttribute(attrName));
     });
-
-    // Normalization: ensure xmlns
-    if (!svg.hasAttribute('xmlns')) {
-      svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-    }
 
     // Remove comments and empty text nodes
     const cleanNodes = (node: Node) => {
@@ -48,8 +61,21 @@ const optimizeSvg = (svgString: string) => {
     };
     cleanNodes(svg);
 
-    const serializer = new XMLSerializer();
-    return serializer.serializeToString(svg);
+    // Use outerHTML for the SVG element to get the string
+    // Since it's HTML parsed, we might need to be careful with self-closing tags
+    // but for SVG it usually works fine in modern browsers.
+    // However, to be safe and get XML-style output, we can re-parse the outerHTML
+    // as XML now that it has the xmlns.
+    const xmlParser = new DOMParser();
+    const xmlDoc = xmlParser.parseFromString(svg.outerHTML, 'image/svg+xml');
+    const finalSvg = xmlDoc.querySelector('svg');
+
+    if (finalSvg) {
+      const serializer = new XMLSerializer();
+      return serializer.serializeToString(finalSvg);
+    }
+
+    return svg.outerHTML;
   } catch (e) {
     return svgString;
   }
@@ -58,7 +84,8 @@ const optimizeSvg = (svgString: string) => {
 const rotateSvg = (svgString: string, angle: number = 90) => {
   try {
     const parser = new DOMParser();
-    const doc = parser.parseFromString(svgString, 'image/svg+xml');
+    // Use text/html for more lenient parsing of snippets
+    const doc = parser.parseFromString(svgString, 'text/html');
     const svg = doc.querySelector('svg');
     if (!svg) return svgString;
 
@@ -77,16 +104,47 @@ const rotateSvg = (svgString: string, angle: number = 90) => {
       cy = h / 2;
     }
 
-    const g = doc.createElementNS('http://www.w3.org/2000/svg', 'g');
-    g.setAttribute('transform', `rotate(${angle} ${cx} ${cy})`);
+    // Check if we already have a rotation group to prevent nesting
+    const firstChild = svg.firstElementChild;
+    if (svg.children.length === 1 && firstChild && firstChild.tagName.toLowerCase() === 'g') {
+      const currentTransform = firstChild.getAttribute('transform') || '';
+      const rotateMatch = currentTransform.match(/rotate\(([-\d.]+)/);
 
-    while (svg.firstChild) {
-      g.appendChild(svg.firstChild);
+      if (rotateMatch) {
+        const currentAngle = parseFloat(rotateMatch[1]);
+        const newAngle = (currentAngle + angle) % 360;
+        // Update existing rotation
+        firstChild.setAttribute('transform', currentTransform.replace(/rotate\([-\d.]+\s+[-\d.]+\s+[-\d.]+\)/, `rotate(${newAngle} ${cx} ${cy})`));
+      } else {
+        // Has a group but no rotate, add it
+        firstChild.setAttribute('transform', `${currentTransform} rotate(${angle} ${cx} ${cy})`.trim());
+      }
+    } else {
+      // Create new rotation group
+      const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+      g.setAttribute('transform', `rotate(${angle} ${cx} ${cy})`);
+
+      while (svg.firstChild) {
+        g.appendChild(svg.firstChild);
+      }
+      svg.appendChild(g);
     }
-    svg.appendChild(g);
 
-    const serializer = new XMLSerializer();
-    return serializer.serializeToString(svg);
+    // Ensure xmlns is present for serialization
+    if (!svg.hasAttribute('xmlns')) {
+      svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    }
+
+    const xmlParser = new DOMParser();
+    const xmlDoc = xmlParser.parseFromString(svg.outerHTML, 'image/svg+xml');
+    const finalSvg = xmlDoc.querySelector('svg');
+
+    if (finalSvg) {
+      const serializer = new XMLSerializer();
+      return serializer.serializeToString(finalSvg);
+    }
+
+    return svg.outerHTML;
   } catch (e) {
     return svgString;
   }
@@ -116,6 +174,7 @@ export default function App() {
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [copiedColor, setCopiedColor] = useState<string | null>(null);
   const [copiedFormat, setCopiedFormat] = useState<string | null>(null);
+  const [stripAttrs, setStripAttrs] = useState(true);
 
   const colors = useMemo(() => extractColors(code), [code]);
 
@@ -139,7 +198,7 @@ export default function App() {
   };
 
   const handleOptimize = () => {
-    const optimized = optimizeSvg(code);
+    const optimized = optimizeSvg(code, stripAttrs);
     const formatted = beautifyHtml(optimized, {
       indent_size: 2,
       wrap_line_length: 80,
@@ -212,6 +271,23 @@ export default function App() {
           <h1 className="text-lg font-semibold text-[#c9d1d9]">SVG DNA Editor</h1>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-3 px-3 py-1.5 bg-[#21262d] border border-[#30363d] rounded-md mr-2">
+            <span className="text-xs font-medium text-[#8b949e] select-none">
+              Strip Class/ID
+            </span>
+            <button
+              onClick={() => setStripAttrs(!stripAttrs)}
+              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${
+                stripAttrs ? 'bg-[#238636]' : 'bg-[#30363d]'
+              }`}
+            >
+              <span
+                className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
+                  stripAttrs ? 'translate-x-5' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
           <button
             onClick={handleOptimize}
             className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-[#c9d1d9] bg-[#21262d] border border-[#30363d] rounded-md hover:bg-[#30363d] hover:border-[#8b949e] transition-colors"
@@ -386,7 +462,7 @@ export default function App() {
       {/* Footer */}
       <footer className="flex flex-col sm:flex-row items-center justify-between px-6 py-4 bg-[#161b22] border-t border-[#30363d] text-sm text-[#8b949e] gap-4 sm:gap-0">
         <div className="flex items-center gap-4">
-          <span>v.1.0.1</span>
+          <span>v.1.2</span>
           <span className="w-1 h-1 rounded-full bg-[#30363d]"></span>
           <span>&copy; {new Date().getFullYear()} Amirhossein Hosseinpour</span>
           <span className="w-1 h-1 rounded-full bg-[#30363d]"></span>
