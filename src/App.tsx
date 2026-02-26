@@ -20,6 +20,55 @@ const optimizeSvg = (svgString: string, stripAttrs: boolean = true) => {
     svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
     svg.setAttribute('version', '1.1');
 
+    // Handle dimensions
+    let width = svg.getAttribute('width');
+    let height = svg.getAttribute('height');
+    const styleAttr = svg.getAttribute('style') || '';
+
+    // 1. Try to extract from style
+    if (!width || !height) {
+      const widthMatch = styleAttr.match(/width:\s*([^;]+)/);
+      const heightMatch = styleAttr.match(/height:\s*([^;]+)/);
+      if (widthMatch && !width) width = widthMatch[1].trim();
+      if (heightMatch && !height) height = heightMatch[1].trim();
+    }
+
+    // 2. Try to extract from viewBox
+    if (!width || !height) {
+      const viewBox = svg.getAttribute('viewBox');
+      if (viewBox) {
+        const parts = viewBox.split(/[ ,]+/).filter(Boolean);
+        if (parts.length === 4) {
+          if (!width) width = parts[2];
+          if (!height) height = parts[3];
+        }
+      }
+    }
+
+    // 3. Default to 24
+    if (!width) width = '24';
+    if (!height) height = '24';
+
+    // Clean units if they are just numbers (CSS might have px, rem etc)
+    // If it's a simple number from viewBox, it's fine.
+    // If it's from style, we keep the units as they are usually valid in SVG attributes too.
+
+    svg.setAttribute('width', width);
+    svg.setAttribute('height', height);
+
+    // Clean up style if it contained width/height
+    if (styleAttr) {
+      const newStyle = styleAttr
+        .replace(/width:\s*[^;]+;?/g, '')
+        .replace(/height:\s*[^;]+;?/g, '')
+        .trim();
+      if (newStyle && newStyle !== ';') {
+        svg.setAttribute('style', newStyle);
+      } else {
+        svg.removeAttribute('style');
+      }
+    }
+
     // Check for xlink usage
     if (svgString.includes('xlink:href') || svgString.includes('xlink:')) {
       svg.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
@@ -462,7 +511,7 @@ export default function App() {
       {/* Footer */}
       <footer className="flex flex-col sm:flex-row items-center justify-between px-6 py-4 bg-[#161b22] border-t border-[#30363d] text-sm text-[#8b949e] gap-4 sm:gap-0">
         <div className="flex items-center gap-4">
-          <span>v.1.2</span>
+          <span>v.1.3.0</span>
           <span className="w-1 h-1 rounded-full bg-[#30363d]"></span>
           <span>&copy; {new Date().getFullYear()} Amirhossein Hosseinpour</span>
           <span className="w-1 h-1 rounded-full bg-[#30363d]"></span>
