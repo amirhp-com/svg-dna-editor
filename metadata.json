@@ -1,0 +1,5 @@
+{
+  "name": "SVG DNA Editor",
+  "description": "An HTML/SVG editor with syntax highlighting, minification, beautification, and live preview. Styled with GitHub DNA.",
+  "requestFramePermissions": []
+}
