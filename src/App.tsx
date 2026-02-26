@@ -18,7 +18,7 @@ const optimizeSvg = (svgString: string) => {
     // Security: remove scripts and event handlers
     const scripts = svg.querySelectorAll('script');
     scripts.forEach(s => s.remove());
-    
+
     const allElements = svg.querySelectorAll('*');
     allElements.forEach(el => {
       Array.from(el.attributes).forEach(attr => {
@@ -79,7 +79,7 @@ const rotateSvg = (svgString: string, angle: number = 90) => {
 
     const g = doc.createElementNS('http://www.w3.org/2000/svg', 'g');
     g.setAttribute('transform', `rotate(${angle} ${cx} ${cy})`);
-    
+
     while (svg.firstChild) {
       g.appendChild(svg.firstChild);
     }
@@ -95,9 +95,9 @@ const rotateSvg = (svgString: string, angle: number = 90) => {
 const extractColors = (svgString: string) => {
   const hexRegex = /#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})\b/g;
   const rgbRegex = /rgba?\([^)]+\)/g;
-  
+
   const colors = new Set<string>();
-  
+
   let match;
   while ((match = hexRegex.exec(svgString)) !== null) {
     colors.add(match[0].toLowerCase());
@@ -105,7 +105,7 @@ const extractColors = (svgString: string) => {
   while ((match = rgbRegex.exec(svgString)) !== null) {
     colors.add(match[0].toLowerCase());
   }
-  
+
   return Array.from(colors);
 };
 
@@ -185,7 +185,7 @@ export default function App() {
   const handleCopyFormat = (format: 'data' | 'base64' | 'css') => {
     let textToCopy = '';
     const encodedSvg = encodeURIComponent(code).replace(/'/g, "%27").replace(/"/g, "%22");
-    
+
     if (format === 'data') {
       textToCopy = `data:image/svg+xml;utf8,${encodedSvg}`;
     } else if (format === 'base64') {
@@ -197,7 +197,7 @@ export default function App() {
     } else if (format === 'css') {
       textToCopy = `.svg-bg {\n  background-image: url("data:image/svg+xml;utf8,${encodedSvg}");\n}`;
     }
-    
+
     navigator.clipboard.writeText(textToCopy);
     setCopiedFormat(format);
     setTimeout(() => setCopiedFormat(null), 2000);
@@ -319,53 +319,53 @@ export default function App() {
         <div className="flex-1 flex flex-col bg-[#0d1117] min-h-[50vh] md:min-h-0">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-4 py-2 bg-[#161b22] border-b border-[#30363d] gap-2 sm:gap-0">
             <span className="text-xs font-semibold text-[#8b949e] uppercase tracking-wider">Live Preview</span>
-            
+
             <div className="flex items-center gap-3">
               {/* Zoom Slider */}
               <div className="flex items-center gap-2">
                 <span className="text-xs text-[#8b949e] w-8 text-right">{zoom}%</span>
-                <input 
-                  type="range" 
-                  min="10" 
-                  max="500" 
-                  value={zoom} 
+                <input
+                  type="range"
+                  min="10"
+                  max="500"
+                  value={zoom}
                   onChange={(e) => setZoom(Number(e.target.value))}
                   className="w-24 accent-[#58a6ff]"
                 />
               </div>
-              
+
               <div className="w-px h-4 bg-[#30363d]"></div>
-              
+
               {/* Theme Toggle */}
-              <button 
+              <button
                 onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
                 className="p-1 text-[#8b949e] hover:text-[#c9d1d9] transition-colors rounded"
                 title="Toggle background"
               >
                 {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
               </button>
-              
+
               <div className="w-px h-4 bg-[#30363d]"></div>
-              
+
               {/* Copy Formats */}
               <div className="flex items-center gap-1">
-                <button 
-                  onClick={() => handleCopyFormat('data')} 
-                  className="p-1.5 text-[#8b949e] hover:text-[#c9d1d9] hover:bg-[#21262d] transition-colors rounded" 
+                <button
+                  onClick={() => handleCopyFormat('data')}
+                  className="p-1.5 text-[#8b949e] hover:text-[#c9d1d9] hover:bg-[#21262d] transition-colors rounded"
                   title="Copy Data URI"
                 >
                   {copiedFormat === 'data' ? <Check className="w-4 h-4 text-[#3fb950]" /> : <Link className="w-4 h-4" />}
                 </button>
-                <button 
-                  onClick={() => handleCopyFormat('base64')} 
-                  className="p-1.5 text-[#8b949e] hover:text-[#c9d1d9] hover:bg-[#21262d] transition-colors rounded" 
+                <button
+                  onClick={() => handleCopyFormat('base64')}
+                  className="p-1.5 text-[#8b949e] hover:text-[#c9d1d9] hover:bg-[#21262d] transition-colors rounded"
                   title="Copy Base64"
                 >
                   {copiedFormat === 'base64' ? <Check className="w-4 h-4 text-[#3fb950]" /> : <FileCode2 className="w-4 h-4" />}
                 </button>
-                <button 
-                  onClick={() => handleCopyFormat('css')} 
-                  className="p-1.5 text-[#8b949e] hover:text-[#c9d1d9] hover:bg-[#21262d] transition-colors rounded" 
+                <button
+                  onClick={() => handleCopyFormat('css')}
+                  className="p-1.5 text-[#8b949e] hover:text-[#c9d1d9] hover:bg-[#21262d] transition-colors rounded"
                   title="Copy CSS Class"
                 >
                   {copiedFormat === 'css' ? <Check className="w-4 h-4 text-[#3fb950]" /> : <ImageIcon className="w-4 h-4" />}
@@ -374,7 +374,7 @@ export default function App() {
             </div>
           </div>
           <div className={`flex-1 flex items-center justify-center p-8 overflow-auto relative ${theme === 'dark' ? 'checkerboard-bg-dark' : 'checkerboard-bg-light'}`}>
-            <div 
+            <div
               className="flex items-center justify-center transition-transform duration-200"
               style={{ transform: `scale(${zoom / 100})` }}
               dangerouslySetInnerHTML={{ __html: code }}
@@ -386,20 +386,22 @@ export default function App() {
       {/* Footer */}
       <footer className="flex flex-col sm:flex-row items-center justify-between px-6 py-4 bg-[#161b22] border-t border-[#30363d] text-sm text-[#8b949e] gap-4 sm:gap-0">
         <div className="flex items-center gap-4">
-          <span>&copy; {new Date().getFullYear()} AmirhpCom</span>
+          <span>v.1.0.1</span>
+          <span className="w-1 h-1 rounded-full bg-[#30363d]"></span>
+          <span>&copy; {new Date().getFullYear()} Amirhossein Hosseinpour</span>
           <span className="w-1 h-1 rounded-full bg-[#30363d]"></span>
           <a href="https://amirhp.com/landing" target="_blank" rel="noopener noreferrer" className="hover:text-[#58a6ff] transition-colors">
-            amirhp.com
+            Amirhp.Com
           </a>
         </div>
-        <a 
-          href="https://github.com/amirhp-com" 
-          target="_blank" 
+        <a
+          href="https://github.com/amirhp-com/svg-dna-editor/"
+          target="_blank"
           rel="noopener noreferrer"
           className="flex items-center gap-2 hover:text-[#58a6ff] transition-colors"
         >
           <Github className="w-4 h-4" />
-          <span>AmirhpCom</span>
+          <span>@svg-dna-editor</span>
         </a>
       </footer>
     </div>
