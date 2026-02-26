@@ -224,6 +224,7 @@ export default function App() {
   const [copiedColor, setCopiedColor] = useState<string | null>(null);
   const [copiedFormat, setCopiedFormat] = useState<string | null>(null);
   const [stripAttrs, setStripAttrs] = useState(true);
+  const [fileName, setFileName] = useState('');
 
   const colors = useMemo(() => extractColors(code), [code]);
 
@@ -267,11 +268,27 @@ export default function App() {
   };
 
   const handleDownload = () => {
+    const now = new Date();
+    const hh = String(now.getHours()).padStart(2, '0');
+    const mm = String(now.getMinutes()).padStart(2, '0');
+    const ss = String(now.getSeconds()).padStart(2, '0');
+    const timestamp = `${hh}${mm}${ss}`;
+
+    let name = fileName.trim();
+    if (!name) {
+      name = `svg-${timestamp}`;
+    }
+
+    // Ensure .svg extension
+    if (!name.toLowerCase().endsWith('.svg')) {
+      name += '.svg';
+    }
+
     const blob = new Blob([code], { type: 'image/svg+xml' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'vector.svg';
+    a.download = name;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -365,6 +382,15 @@ export default function App() {
             <RotateCw className="w-4 h-4" />
             Rotate 90°
           </button>
+          <div className="flex items-center bg-[#21262d] border border-[#30363d] rounded-md overflow-hidden">
+            <input
+              type="text"
+              placeholder="Filename (optional)"
+              value={fileName}
+              onChange={(e) => setFileName(e.target.value)}
+              className="bg-transparent border-none px-3 py-1.5 text-sm text-[#c9d1d9] focus:outline-none w-32 md:w-40 placeholder:text-[#484f58]"
+            />
+          </div>
           <button
             onClick={handleDownload}
             className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-[#238636] border border-[rgba(240,246,252,0.1)] rounded-md hover:bg-[#2ea043] transition-colors"
@@ -511,7 +537,7 @@ export default function App() {
       {/* Footer */}
       <footer className="flex flex-col sm:flex-row items-center justify-between px-6 py-4 bg-[#161b22] border-t border-[#30363d] text-sm text-[#8b949e] gap-4 sm:gap-0">
         <div className="flex items-center gap-4">
-          <span>v.1.3.0</span>
+          <span>v.1.4.0</span>
           <span className="w-1 h-1 rounded-full bg-[#30363d]"></span>
           <span>&copy; {new Date().getFullYear()} Amirhossein Hosseinpour</span>
           <span className="w-1 h-1 rounded-full bg-[#30363d]"></span>
