@@ -1,7 +1,13 @@
 import React, { useState, useMemo } from 'react';
-import Editor from '@monaco-editor/react';
+import Editor, { loader } from '@monaco-editor/react';
+import Tippy from '@tippyjs/react';
+import 'tippy.js/dist/tippy.css';
+import 'tippy.js/themes/material.css';
 import { html as beautifyHtml } from 'js-beautify';
-import { Download, Code2, Paintbrush, Minimize2, Github, Copy, Check, RotateCw, Sun, Moon, Wand2, Link, FileCode2, Image as ImageIcon } from 'lucide-react';
+import { Download, Code2, Paintbrush, Minimize2, Github, Copy, Check, RotateCw, Sun, Moon, Wand2, Link, FileCode2, Image as ImageIcon, FileImage, Database, Palette } from 'lucide-react';
+
+// Kick off Monaco loader as early as possible so the editor is ready by the time the component mounts.
+loader.init();
 
 const DEFAULT_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="200" height="200">
   <circle cx="50" cy="50" r="40" stroke="#58a6ff" stroke-width="4" fill="#161b22" />
@@ -199,6 +205,22 @@ const rotateSvg = (svgString: string, angle: number = 90) => {
   }
 };
 
+const encodeSvgForCss = (svg: string) => {
+  let data = svg.trim();
+  if (data.indexOf('http://www.w3.org/2000/svg') < 0) {
+    data = data.replace(/<svg\b/, "<svg xmlns='http://www.w3.org/2000/svg'");
+  }
+  data = data
+    .replace(/>\s+</g, '><')
+    .replace(/\s{2,}/g, ' ');
+  data = data.replace(/"/g, "'");
+  return data.replace(/[\r\n%#()<>?[\\\]^`{|}]/g, encodeURIComponent);
+};
+
+const randomHexColor = () => {
+  return '#' + Math.floor(Math.random() * 0xffffff).toString(16).padStart(6, '0');
+};
+
 const extractColors = (svgString: string) => {
   const hexRegex = /#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})\b/g;
   const rgbRegex = /rgba?\([^)]+\)/g;
@@ -307,9 +329,11 @@ export default function App() {
     setTimeout(() => setCopiedColor(null), 2000);
   };
 
-  const handleCopyFormat = (format: 'data' | 'base64' | 'css') => {
+  const handleCopyFormat = (format: 'data' | 'base64' | 'css' | 'css-bg-image' | 'raw-data-uri' | 'css-bg-full') => {
     let textToCopy = '';
     const encodedSvg = encodeURIComponent(code).replace(/'/g, "%27").replace(/"/g, "%22");
+    const cssEncoded = encodeSvgForCss(code);
+    const dataUri = `data:image/svg+xml,${cssEncoded}`;
 
     if (format === 'data') {
       textToCopy = `data:image/svg+xml;utf8,${encodedSvg}`;
@@ -321,6 +345,12 @@ export default function App() {
       }
     } else if (format === 'css') {
       textToCopy = `.svg-bg {\n  background-image: url("data:image/svg+xml;utf8,${encodedSvg}");\n}`;
+    } else if (format === 'css-bg-image') {
+      textToCopy = `background-image: url("${dataUri}");`;
+    } else if (format === 'raw-data-uri') {
+      textToCopy = dataUri;
+    } else if (format === 'css-bg-full') {
+      textToCopy = `background: ${randomHexColor()} url("${dataUri}") center/contain no-repeat;`;
     }
 
     navigator.clipboard.writeText(textToCopy);
@@ -354,34 +384,42 @@ export default function App() {
               />
             </button>
           </div>
-          <button
-            onClick={handleOptimize}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-[#c9d1d9] bg-[#21262d] border border-[#30363d] rounded-md hover:bg-[#30363d] hover:border-[#8b949e] transition-colors"
-          >
-            <Wand2 className="w-4 h-4" />
-            Optimize
-          </button>
-          <button
-            onClick={handleBeautify}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-[#c9d1d9] bg-[#21262d] border border-[#30363d] rounded-md hover:bg-[#30363d] hover:border-[#8b949e] transition-colors"
-          >
-            <Paintbrush className="w-4 h-4" />
-            Beautify
-          </button>
-          <button
-            onClick={handleMinify}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-[#c9d1d9] bg-[#21262d] border border-[#30363d] rounded-md hover:bg-[#30363d] hover:border-[#8b949e] transition-colors"
-          >
-            <Minimize2 className="w-4 h-4" />
-            Minify
-          </button>
-          <button
-            onClick={handleRotate}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-[#c9d1d9] bg-[#21262d] border border-[#30363d] rounded-md hover:bg-[#30363d] hover:border-[#8b949e] transition-colors"
-          >
-            <RotateCw className="w-4 h-4" />
-            Rotate 90°
-          </button>
+          <Tippy content="Clean up & normalize SVG markup" theme="material">
+            <button
+              onClick={handleOptimize}
+              className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-[#c9d1d9] bg-[#21262d] border border-[#30363d] rounded-md hover:bg-[#30363d] hover:border-[#8b949e] transition-colors"
+            >
+              <Wand2 className="w-4 h-4" />
+              Optimize
+            </button>
+          </Tippy>
+          <Tippy content="Prettify with indentation" theme="material">
+            <button
+              onClick={handleBeautify}
+              className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-[#c9d1d9] bg-[#21262d] border border-[#30363d] rounded-md hover:bg-[#30363d] hover:border-[#8b949e] transition-colors"
+            >
+              <Paintbrush className="w-4 h-4" />
+              Beautify
+            </button>
+          </Tippy>
+          <Tippy content="Strip whitespace & comments" theme="material">
+            <button
+              onClick={handleMinify}
+              className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-[#c9d1d9] bg-[#21262d] border border-[#30363d] rounded-md hover:bg-[#30363d] hover:border-[#8b949e] transition-colors"
+            >
+              <Minimize2 className="w-4 h-4" />
+              Minify
+            </button>
+          </Tippy>
+          <Tippy content="Rotate SVG 90° clockwise" theme="material">
+            <button
+              onClick={handleRotate}
+              className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-[#c9d1d9] bg-[#21262d] border border-[#30363d] rounded-md hover:bg-[#30363d] hover:border-[#8b949e] transition-colors"
+            >
+              <RotateCw className="w-4 h-4" />
+              Rotate 90°
+            </button>
+          </Tippy>
           <div className="flex items-center bg-[#21262d] border border-[#30363d] rounded-md overflow-hidden">
             <input
               type="text"
@@ -391,13 +429,15 @@ export default function App() {
               className="bg-transparent border-none px-3 py-1.5 text-sm text-[#c9d1d9] focus:outline-none w-32 md:w-40 placeholder:text-[#484f58]"
             />
           </div>
-          <button
-            onClick={handleDownload}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-[#238636] border border-[rgba(240,246,252,0.1)] rounded-md hover:bg-[#2ea043] transition-colors"
-          >
-            <Download className="w-4 h-4" />
-            Download SVG
-          </button>
+          <Tippy content="Download current SVG as file" theme="material">
+            <button
+              onClick={handleDownload}
+              className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-[#238636] border border-[rgba(240,246,252,0.1)] rounded-md hover:bg-[#2ea043] transition-colors"
+            >
+              <Download className="w-4 h-4" />
+              Download SVG
+            </button>
+          </Tippy>
         </div>
       </header>
 
@@ -407,13 +447,14 @@ export default function App() {
         <div className="flex-1 flex flex-col border-b md:border-b-0 md:border-r border-[#30363d] min-h-[50vh] md:min-h-0">
           <div className="flex items-center justify-between px-4 py-2 bg-[#161b22] border-b border-[#30363d]">
             <span className="text-xs font-semibold text-[#8b949e] uppercase tracking-wider">Editor</span>
-            <button
-              onClick={handleCopy}
-              className="p-1 text-[#8b949e] hover:text-[#c9d1d9] transition-colors rounded"
-              title="Copy code"
-            >
-              {copied ? <Check className="w-4 h-4 text-[#3fb950]" /> : <Copy className="w-4 h-4" />}
-            </button>
+            <Tippy content="Copy SVG source code" theme="material">
+              <button
+                onClick={handleCopy}
+                className="p-1 text-[#8b949e] hover:text-[#c9d1d9] transition-colors rounded"
+              >
+                {copied ? <Check className="w-4 h-4 text-[#3fb950]" /> : <Copy className="w-4 h-4" />}
+              </button>
+            </Tippy>
           </div>
           <div className="flex-1 relative">
             <Editor
@@ -488,39 +529,67 @@ export default function App() {
               <div className="w-px h-4 bg-[#30363d]"></div>
 
               {/* Theme Toggle */}
-              <button
-                onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
-                className="p-1 text-[#8b949e] hover:text-[#c9d1d9] transition-colors rounded"
-                title="Toggle background"
-              >
-                {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-              </button>
+              <Tippy content="Toggle preview background" theme="material">
+                <button
+                  onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
+                  className="p-1 text-[#8b949e] hover:text-[#c9d1d9] transition-colors rounded"
+                >
+                  {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+                </button>
+              </Tippy>
 
               <div className="w-px h-4 bg-[#30363d]"></div>
 
               {/* Copy Formats */}
               <div className="flex items-center gap-1">
-                <button
-                  onClick={() => handleCopyFormat('data')}
-                  className="p-1.5 text-[#8b949e] hover:text-[#c9d1d9] hover:bg-[#21262d] transition-colors rounded"
-                  title="Copy Data URI"
-                >
-                  {copiedFormat === 'data' ? <Check className="w-4 h-4 text-[#3fb950]" /> : <Link className="w-4 h-4" />}
-                </button>
-                <button
-                  onClick={() => handleCopyFormat('base64')}
-                  className="p-1.5 text-[#8b949e] hover:text-[#c9d1d9] hover:bg-[#21262d] transition-colors rounded"
-                  title="Copy Base64"
-                >
-                  {copiedFormat === 'base64' ? <Check className="w-4 h-4 text-[#3fb950]" /> : <FileCode2 className="w-4 h-4" />}
-                </button>
-                <button
-                  onClick={() => handleCopyFormat('css')}
-                  className="p-1.5 text-[#8b949e] hover:text-[#c9d1d9] hover:bg-[#21262d] transition-colors rounded"
-                  title="Copy CSS Class"
-                >
-                  {copiedFormat === 'css' ? <Check className="w-4 h-4 text-[#3fb950]" /> : <ImageIcon className="w-4 h-4" />}
-                </button>
+                <Tippy content="Copy Data URI (utf8)" theme="material">
+                  <button
+                    onClick={() => handleCopyFormat('data')}
+                    className="p-1.5 text-[#8b949e] hover:text-[#c9d1d9] hover:bg-[#21262d] transition-colors rounded"
+                  >
+                    {copiedFormat === 'data' ? <Check className="w-4 h-4 text-[#3fb950]" /> : <Link className="w-4 h-4" />}
+                  </button>
+                </Tippy>
+                <Tippy content="Copy Base64 Data URI" theme="material">
+                  <button
+                    onClick={() => handleCopyFormat('base64')}
+                    className="p-1.5 text-[#8b949e] hover:text-[#c9d1d9] hover:bg-[#21262d] transition-colors rounded"
+                  >
+                    {copiedFormat === 'base64' ? <Check className="w-4 h-4 text-[#3fb950]" /> : <FileCode2 className="w-4 h-4" />}
+                  </button>
+                </Tippy>
+                <Tippy content="Copy CSS class with background-image" theme="material">
+                  <button
+                    onClick={() => handleCopyFormat('css')}
+                    className="p-1.5 text-[#8b949e] hover:text-[#c9d1d9] hover:bg-[#21262d] transition-colors rounded"
+                  >
+                    {copiedFormat === 'css' ? <Check className="w-4 h-4 text-[#3fb950]" /> : <ImageIcon className="w-4 h-4" />}
+                  </button>
+                </Tippy>
+                <Tippy content="Copy background-image: url(...) declaration" theme="material">
+                  <button
+                    onClick={() => handleCopyFormat('css-bg-image')}
+                    className="p-1.5 text-[#8b949e] hover:text-[#c9d1d9] hover:bg-[#21262d] transition-colors rounded"
+                  >
+                    {copiedFormat === 'css-bg-image' ? <Check className="w-4 h-4 text-[#3fb950]" /> : <FileImage className="w-4 h-4" />}
+                  </button>
+                </Tippy>
+                <Tippy content="Copy raw data URI (contents of url())" theme="material">
+                  <button
+                    onClick={() => handleCopyFormat('raw-data-uri')}
+                    className="p-1.5 text-[#8b949e] hover:text-[#c9d1d9] hover:bg-[#21262d] transition-colors rounded"
+                  >
+                    {copiedFormat === 'raw-data-uri' ? <Check className="w-4 h-4 text-[#3fb950]" /> : <Database className="w-4 h-4" />}
+                  </button>
+                </Tippy>
+                <Tippy content="Copy background shorthand with random color, center/contain no-repeat" theme="material">
+                  <button
+                    onClick={() => handleCopyFormat('css-bg-full')}
+                    className="p-1.5 text-[#8b949e] hover:text-[#c9d1d9] hover:bg-[#21262d] transition-colors rounded"
+                  >
+                    {copiedFormat === 'css-bg-full' ? <Check className="w-4 h-4 text-[#3fb950]" /> : <Palette className="w-4 h-4" />}
+                  </button>
+                </Tippy>
               </div>
             </div>
           </div>
@@ -537,7 +606,7 @@ export default function App() {
       {/* Footer */}
       <footer className="flex flex-col sm:flex-row items-center justify-between px-6 py-4 bg-[#161b22] border-t border-[#30363d] text-sm text-[#8b949e] gap-4 sm:gap-0">
         <div className="flex items-center gap-4">
-          <span>v.1.4.0</span>
+          <span>v.1.5.0</span>
           <span className="w-1 h-1 rounded-full bg-[#30363d]"></span>
           <span>&copy; {new Date().getFullYear()} Amirhossein Hosseinpour</span>
           <span className="w-1 h-1 rounded-full bg-[#30363d]"></span>
