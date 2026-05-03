@@ -1,10 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import Editor, { loader } from '@monaco-editor/react';
 import Tippy from '@tippyjs/react';
 import 'tippy.js/dist/tippy.css';
 import 'tippy.js/themes/material.css';
 import { html as beautifyHtml } from 'js-beautify';
-import { Download, Code2, Paintbrush, Minimize2, Github, Copy, Check, RotateCw, Sun, Moon, Wand2, Link, FileCode2, Image as ImageIcon, FileImage, Database, Palette } from 'lucide-react';
+import { Download, Code2, Paintbrush, Minimize2, Github, Copy, Check, RotateCw, Sun, Moon, Wand2, Link, FileCode2, Image as ImageIcon, FileImage, Database, Palette, Upload, Eraser } from 'lucide-react';
 
 // Kick off Monaco loader as early as possible so the editor is ready by the time the component mounts.
 loader.init();
@@ -247,6 +247,7 @@ export default function App() {
   const [copiedFormat, setCopiedFormat] = useState<string | null>(null);
   const [stripAttrs, setStripAttrs] = useState(true);
   const [fileName, setFileName] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const colors = useMemo(() => extractColors(code), [code]);
 
@@ -287,6 +288,52 @@ export default function App() {
       preserve_newlines: false,
     });
     setCode(formatted);
+  };
+
+  const handleRemoveFill = () => {
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(code, 'text/html');
+      const svg = doc.querySelector('svg');
+      if (!svg) return;
+      const els = [svg, ...Array.from(svg.querySelectorAll('*'))];
+      els.forEach(el => {
+        const fill = el.getAttribute('fill');
+        if (fill !== null && fill.toLowerCase() !== 'none') {
+          el.removeAttribute('fill');
+        }
+        const style = el.getAttribute('style');
+        if (style) {
+          const cleaned = style.replace(/fill\s*:\s*(?!none)[^;]+;?/gi, '').trim().replace(/;$/, '');
+          if (cleaned) el.setAttribute('style', cleaned);
+          else el.removeAttribute('style');
+        }
+      });
+      const xmlParser = new DOMParser();
+      const xmlDoc = xmlParser.parseFromString(svg.outerHTML, 'image/svg+xml');
+      const finalSvg = xmlDoc.querySelector('svg');
+      if (finalSvg) {
+        const serialized = new XMLSerializer().serializeToString(finalSvg);
+        setCode(beautifyHtml(serialized, { indent_size: 2, wrap_line_length: 80, preserve_newlines: false }));
+      }
+    } catch (e) {}
+  };
+
+  const handleUpload = () => fileInputRef.current?.click();
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const content = ev.target?.result as string;
+      if (content) {
+        setCode(beautifyHtml(content, { indent_size: 2, wrap_line_length: 80, preserve_newlines: false }));
+        setFileName(file.name.replace(/\.svg$/i, ''));
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
   };
 
   const handleDownload = () => {
@@ -367,6 +414,22 @@ export default function App() {
           <h1 className="text-lg font-semibold text-[#c9d1d9]">SVG DNA Editor</h1>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".svg,image/svg+xml"
+            className="hidden"
+            onChange={handleFileChange}
+          />
+          <Tippy content="Upload an SVG file" theme="material">
+            <button
+              onClick={handleUpload}
+              className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-[#c9d1d9] bg-[#21262d] border border-[#30363d] rounded-md hover:bg-[#30363d] hover:border-[#8b949e] transition-colors"
+            >
+              <Upload className="w-4 h-4" />
+              Upload SVG
+            </button>
+          </Tippy>
           <div className="flex items-center gap-3 px-3 py-1.5 bg-[#21262d] border border-[#30363d] rounded-md mr-2">
             <span className="text-xs font-medium text-[#8b949e] select-none">
               Strip Class/ID
@@ -418,6 +481,15 @@ export default function App() {
             >
               <RotateCw className="w-4 h-4" />
               Rotate 90°
+            </button>
+          </Tippy>
+          <Tippy content="Remove all fill attributes (keeps fill=&quot;none&quot;)" theme="material">
+            <button
+              onClick={handleRemoveFill}
+              className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-[#c9d1d9] bg-[#21262d] border border-[#30363d] rounded-md hover:bg-[#30363d] hover:border-[#8b949e] transition-colors"
+            >
+              <Eraser className="w-4 h-4" />
+              Remove Fill
             </button>
           </Tippy>
           <div className="flex items-center bg-[#21262d] border border-[#30363d] rounded-md overflow-hidden">
@@ -606,7 +678,7 @@ export default function App() {
       {/* Footer */}
       <footer className="flex flex-col sm:flex-row items-center justify-between px-6 py-4 bg-[#161b22] border-t border-[#30363d] text-sm text-[#8b949e] gap-4 sm:gap-0">
         <div className="flex items-center gap-4">
-          <span>v.1.5.0</span>
+          <span>v.1.6.0</span>
           <span className="w-1 h-1 rounded-full bg-[#30363d]"></span>
           <span>&copy; {new Date().getFullYear()} Amirhossein Hosseinpour</span>
           <span className="w-1 h-1 rounded-full bg-[#30363d]"></span>
